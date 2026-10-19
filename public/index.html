@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PricePulse - Live Price Comparison</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        body { font-family: 'Inter', sans-serif; }
+    </style>
+</head>
+<body class="bg-slate-900 text-slate-100 min-h-screen flex flex-col">
+
+    <nav class="bg-slate-800/80 backdrop-blur border-b border-slate-700 sticky top-0 z-50">
+        <div class="max-w-6xl mx-auto px-4 py-3 flex justify-between items-center">
+            <div class="flex items-center space-x-2 cursor-pointer" onclick="location.reload()">
+                <div class="bg-indigo-600 text-white p-2 rounded-lg">
+                    <i class="fa-solid fa-scale-balanced text-xl"></i>
+                </div>
+                <span class="text-2xl font-bold bg-gradient-to-r from-indigo-400 to-cyan-400 bg-clip-text text-transparent">
+                    PricePulse
+                </span>
+            </div>
+        </div>
+    </nav>
+
+    <div class="bg-slate-950 py-12 px-4 border-b border-slate-800">
+        <div class="max-w-3xl mx-auto text-center">
+            <h1 class="text-3xl md:text-5xl font-bold mb-3 tracking-tight">Find the Exact Live Price</h1>
+            <p class="text-slate-400 mb-6 text-sm md:text-base">Real-time extraction across Amazon India, Flipkart, Croma & Reliance Digital</p>
+            
+            <form id="searchForm" class="relative flex items-center max-w-2xl mx-auto">
+                <i class="fa-solid fa-magnifying-glass absolute left-4 text-slate-500 text-lg"></i>
+                <input 
+                    type="text" 
+                    id="searchInput" 
+                    placeholder="Search exact model (e.g. iPhone 16 128GB, Samsung S24 Ultra)..." 
+                    class="w-full pl-12 pr-32 py-3.5 rounded-xl bg-slate-900 border border-slate-700 text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-xl text-base placeholder-slate-500"
+                    required
+                >
+                <button 
+                    type="submit" 
+                    class="absolute right-2 bg-indigo-600 hover:bg-indigo-500 text-white font-semibold py-2 px-5 rounded-lg transition"
+                >
+                    Compare
+                </button>
+            </form>
+
+            <div class="mt-4 flex flex-wrap justify-center gap-2 items-center text-xs">
+                <span class="text-slate-400">Popular:</span>
+                <button onclick="quickSearch('iPhone 16 128GB')" class="bg-slate-800 hover:bg-slate-700 px-3 py-1 rounded-full border border-slate-700 transition">iPhone 16 128GB</button>
+                <button onclick="quickSearch('Sony WH-1000XM5')" class="bg-slate-800 hover:bg-slate-700 px-3 py-1 rounded-full border border-slate-700 transition">Sony WH-1000XM5</button>
+                <button onclick="quickSearch('MacBook Air M3')" class="bg-slate-800 hover:bg-slate-700 px-3 py-1 rounded-full border border-slate-700 transition">MacBook Air M3</button>
+                <button onclick="quickSearch('Samsung Galaxy S24 Ultra')" class="bg-slate-800 hover:bg-slate-700 px-3 py-1 rounded-full border border-slate-700 transition">Samsung S24 Ultra</button>
+            </div>
+        </div>
+    </div>
+
+    <main class="max-w-6xl mx-auto px-4 py-8 flex-grow w-full">
+        <div id="loader" class="hidden text-center py-16">
+            <i class="fa-solid fa-circle-notch fa-spin text-4xl text-indigo-500 mb-4"></i>
+            <p class="text-slate-400 font-medium text-sm">Scraping live prices from Indian stores...</p>
+        </div>
+        <div id="resultsContainer" class="space-y-6"></div>
+    </main>
+
+    <footer class="bg-slate-950 border-t border-slate-800 py-6 text-center text-xs text-slate-500">
+        <p>© 2026 PricePulse Live Comparison Engine</p>
+    </footer>
+
+    <script>
+        function formatINR(amount) {
+            return "₹" + amount.toLocaleString('en-IN');
+        }
+
+        function renderProduct(productData) {
+            const container = document.getElementById('resultsContainer');
+
+            const pricedStores = productData.stores.filter(s => typeof s.price === 'number' && s.price > 0).sort((a, b) => a.price - b.price);
+            const unpricedStores = productData.stores.filter(s => !s.price);
+            const sortedStores = [...pricedStores, ...unpricedStores];
+
+            const lowestPrice = pricedStores[0]?.price || null;
+
+            let storesHTML = sortedStores.map((store, index) => {
+                const hasPrice = typeof store.price === 'number' && store.price > 0;
+                const isCheapest = hasPrice && store.price === lowestPrice;
+
+                return `
+                    <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between p-4 rounded-xl border ${isCheapest ? 'border-emerald-500/50 bg-emerald-950/20' : 'border-slate-800 bg-slate-900/60'} hover:border-slate-700 transition gap-4">
+                        <div class="flex items-center space-x-4">
+                            <div class="${store.logoColor} text-white font-bold w-12 h-12 rounded-lg flex items-center justify-center text-lg shadow">
+                                ${store.name.charAt(0)}
+                            </div>
+                            <div>
+                                <div class="flex items-center space-x-2">
+                                    <h4 class="font-bold text-white text-base">${store.name}</h4>
+                                    ${isCheapest ? '<span class="bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 text-xs font-bold px-2 py-0.5 rounded-full">VERIFIED LOWEST</span>' : ''}
+                                </div>
+                                <p class="text-xs text-slate-400 mt-0.5">
+                                    <i class="fa-solid fa-bolt text-indigo-400 mr-1"></i> ${store.delivery}
+                                </p>
+                            </div>
+                        </div>
+
+                        <div class="flex items-center justify-between sm:justify-end w-full sm:w-auto space-x-6 border-t border-slate-800 sm:border-t-0 pt-3 sm:pt-0">
+                            <div class="text-left sm:text-right">
+                                <span class="text-xl font-bold ${isCheapest ? 'text-emerald-400' : 'text-white'}">
+                                    ${hasPrice ? formatINR(store.price) : 'View on Store'}
+                                </span>
+                                <p class="text-xs text-slate-500">
+                                    ${hasPrice ? 'Exact live price' : 'Direct search link'}
+                                </p>
+                            </div>
+                            <a href="${store.url}" target="_blank" class="${isCheapest ? 'bg-emerald-600 hover:bg-emerald-500' : 'bg-indigo-600 hover:bg-indigo-500'} text-white font-medium px-4 py-2 rounded-lg text-sm transition flex items-center space-x-2 shrink-0">
+                                <span>Go to Store</span>
+                                <i class="fa-solid fa-arrow-up-right-from-square text-xs"></i>
+                            </a>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+
+            container.innerHTML = `
+                <div class="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-2xl">
+                    <div class="p-6 md:p-8 border-b border-slate-800 flex flex-col md:flex-row items-center gap-6">
+                        <div class="w-24 h-24 bg-slate-800 border border-slate-700 text-indigo-400 rounded-2xl flex items-center justify-center shrink-0">
+                            <i class="fa-solid ${productData.icon} text-4xl"></i>
+                        </div>
+                        <div class="flex-grow text-center md:text-left">
+                            <span class="text-xs font-bold uppercase tracking-wider text-indigo-400 bg-indigo-950/60 border border-indigo-800/50 px-2.5 py-0.5 rounded-full">${productData.category}</span>
+                            <h2 class="text-xl md:text-2xl font-bold text-white mt-2">${productData.title}</h2>
+                            <p class="text-slate-400 text-xs md:text-sm mt-1">${productData.specs}</p>
+                            <div class="flex items-center justify-center md:justify-start space-x-2 mt-3 text-xs">
+                                <span class="bg-amber-400 text-slate-900 font-bold px-2 py-0.5 rounded flex items-center">
+                                    <i class="fa-solid fa-star text-xs mr-1"></i> ${productData.rating}
+                                </span>
+                                <span class="text-slate-400">(${productData.reviews} ratings)</span>
+                            </div>
+                        </div>
+                        ${lowestPrice ? `
+                        <div class="bg-emerald-950/30 border border-emerald-800/40 rounded-xl p-4 text-center shrink-0 w-full md:w-auto">
+                            <p class="text-xs text-emerald-400 uppercase font-semibold">Best Live Price</p>
+                            <p class="text-2xl font-bold text-emerald-400 mt-0.5">${formatINR(lowestPrice)}</p>
+                            <p class="text-xs text-emerald-500 mt-0.5">Updated just now</p>
+                        </div>` : ''}
+                    </div>
+
+                    <div class="p-6 md:p-8 bg-slate-950/40">
+                        <div class="space-y-3">
+                            ${storesHTML}
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+
+        async function handleSearch(query) {
+            const cleanQuery = query.trim();
+            if (!cleanQuery) return;
+
+            const loader = document.getElementById('loader');
+            const container = document.getElementById('resultsContainer');
+            
+            container.innerHTML = '';
+            loader.classList.remove('hidden');
+
+            try {
+                const response = await fetch(`/api/compare?q=${encodeURIComponent(cleanQuery)}`);
+                const liveData = await response.json();
+                loader.classList.add('hidden');
+                renderProduct(liveData);
+            } catch (error) {
+                console.error("Error:", error);
+                loader.classList.add('hidden');
+            }
+        }
+
+        function quickSearch(query) {
+            document.getElementById('searchInput').value = query;
+            handleSearch(query);
+        }
+
+        document.getElementById('searchForm').addEventListener('submit', (e) => {
+            e.preventDefault();
+            handleSearch(document.getElementById('searchInput').value);
+        });
+
+        window.onload = () => {
+            quickSearch('iPhone 16 128GB');
+        };
+    </script>
+</body>
+</html>
