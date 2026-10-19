@@ -1,33 +1,4 @@
-require('dotenv').config();
-const express = require('express');
-const cors = require('cors');
-const path = require('path');
-const axios = require('axios');
-const amazonPaapi = require('amazon-paapi');
 
-const app = express();
-app.use(cors());
-app.use(express.json());
-
-// Serve frontend directly from public directory
-app.use(express.static(path.join(__dirname, 'public')));
-
-// Fallback catalog if API credentials are not yet active
-const presetProducts = {
-    "iphone 16 128gb": {
-        title: "Apple iPhone 16 (128GB, Ultramarine)",
-        category: "Smartphones",
-        rating: "4.6",
-        reviews: "4,820",
-        specs: "6.1-inch Super Retina XDR | A18 Bionic Chip | 48MP Fusion Camera",
-        icon: "fa-mobile-screen-button",
-        basePrices: { amazon: 75490, flipkart: 74999, croma: 75900, reliance: 76900 }
-    },
-    "sony wh-1000xm5": {
-        title: "Sony WH-1000XM5 Wireless Noise Cancelling Headphones",
-        category: "Audio & Headphones",
-        rating: "4.8",
-        reviews: "9,150",
 require('dotenv').config();
 const express = require('express');
 const cors = require('cors');
@@ -92,7 +63,6 @@ async function scrapeFlipkartLive(query) {
         let price = null;
         let title = null;
 
-        // Match standard Flipkart price classes (₹ symbol followed by digits)
         $('div').each((_, el) => {
             const text = $(el).text().trim();
             if (/^₹[0-9,]+$/.test(text) && !price) {
@@ -130,18 +100,6 @@ async function fetchRelianceLive(query) {
     }
 }
 
-// 4. Optional SerpApi Google Shopping India (If SERPAPI_KEY is added in .env)
-async function fetchGoogleShoppingPrices(query) {
-    if (!process.env.SERPAPI_KEY) return null;
-    try {
-        const url = `https://serpapi.com/search.json?engine=google_shopping&q=${encodeURIComponent(query)}&gl=in&hl=en&api_key=${process.env.SERPAPI_KEY}`;
-        const { data } = await axios.get(url, { timeout: 8000 });
-        return data.shopping_results || null;
-    } catch (error) {
-        return null;
-    }
-}
-
 app.get('/api/compare', async (req, res) => {
     const query = (req.query.q || '').trim();
     if (!query) return res.status(400).json({ error: "Search query is required" });
@@ -150,24 +108,15 @@ app.get('/api/compare', async (req, res) => {
     const partnerTag = process.env.AMAZON_PARTNER_TAG || 'yourstore-21';
     const fkAffId = process.env.FLIPKART_AFFILIATE_ID || 'your_fk_id';
 
-    const [amazonLive, flipkartLive, relianceLive, googleResults] = await Promise.all([
+    const [amazonLive, flipkartLive, relianceLive] = await Promise.all([
         scrapeAmazonLive(query),
         scrapeFlipkartLive(query),
-        fetchRelianceLive(query),
-        fetchGoogleShoppingPrices(query)
+        fetchRelianceLive(query)
     ]);
 
-    // Extract store prices from Google Shopping if SerpApi is active
-    const findGooglePrice = (storeKeyword) => {
-        if (!googleResults) return null;
-        const hit = googleResults.find(item => item.source?.toLowerCase().includes(storeKeyword));
-        return hit?.extracted_price ? Math.round(hit.extracted_price) : null;
-    };
-
-    const amazonPrice = amazonLive?.price || findGooglePrice('amazon') || null;
-    const flipkartPrice = flipkartLive?.price || findGooglePrice('flipkart') || null;
-    const cromaPrice = findGooglePrice('croma') || null;
-    const reliancePrice = relianceLive?.price || findGooglePrice('reliance') || null;
+    const amazonPrice = amazonLive?.price || null;
+    const flipkartPrice = flipkartLive?.price || null;
+    const reliancePrice = relianceLive?.price || null;
 
     const stores = [
         {
@@ -189,8 +138,8 @@ app.get('/api/compare', async (req, res) => {
         {
             name: "Croma",
             logoColor: "bg-teal-600",
-            price: cromaPrice,
-            delivery: cromaPrice ? "Live Price Verified" : "Click to check live Croma price",
+            price: null,
+            delivery: "Click to check live Croma price",
             inStock: true,
             url: `https://www.croma.com/searchB?q=${encodedQuery}%3Arelevance`
         },
